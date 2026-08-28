@@ -96,6 +96,8 @@ obtained. That is a useful floor, not a rating.
   measured budget
 - [docs/sources.md](docs/sources.md) — the three sources, their measured
   accuracy, and the traps in each
+- [docs/results.md](docs/results.md) — what it actually did against one real
+  install, including the two defects the install loop found
 - [CREDITS.md](CREDITS.md) — MrKraken's StarStrings is the idea this is built
   on, and none of it is redistributed here
 
