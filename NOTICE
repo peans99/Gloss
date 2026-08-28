@@ -1,0 +1,45 @@
+Gloss
+Copyright 2026 nekron
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+--------------------------------------------------------------------------------
+NOT COVERED BY THAT LICENCE
+--------------------------------------------------------------------------------
+
+The Apache licence above covers the source code in this repository. It does not,
+and cannot, cover the following, which belong to other people:
+
+1. STAR CITIZEN GAME TEXT
+
+   Gloss reads the game's English localisation table out of the user's own
+   Data.p4k, and writes a copy of it back with a handful of names annotated.
+   That text is Cloud Imperium's, both before and after Gloss touches it.
+
+   None of it is in this repository, and no release published from it contains
+   any: the releases carry the tool and a table of derived facts, and the
+   annotated file is produced on the user's own machine from their own
+   installation. If you fork this and choose to distribute a built global.ini
+   instead, that is redistribution of Cloud Imperium's text, and it is on you -
+   nothing in LICENSE grants you a right to it, and this project cannot grant
+   one.
+
+2. THE ACQUISITION FACTS
+
+   facts.json is derived from the Star Citizen Wiki API, which in turn derives
+   from Cloud Imperium's game data and, for prices, from UEX's crowd-sourced
+   listings. It is published here as a convenience so that nobody has to make
+   12,000 requests to build it themselves. See CREDITS.md.
+
+3. STARSTRINGS
+
+   Gloss exists because MrKraken demonstrated the idea first, and it is built to
+   sit on top of StarStrings rather than replace it. No part of StarStrings is
+   vendored, modified or redistributed here, and no release contains any of it.
+   Their work is theirs to licence and theirs to change.
+
+--------------------------------------------------------------------------------
+
+Star Citizen(R), Roberts Space Industries(R) and Cloud Imperium(R) are
+registered trademarks of Cloud Imperium Rights LLC. This is an unofficial fan
+tool, not affiliated with or endorsed by Cloud Imperium Games.

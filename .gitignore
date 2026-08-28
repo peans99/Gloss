@@ -15,3 +15,6 @@ receipts.txt
 # Install bookkeeping and displaced files live beside the binary.
 installed.json
 backup/
+
+# Release output is built, not source.
+release/
