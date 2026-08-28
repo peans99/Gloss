@@ -9,7 +9,11 @@ namespace Gloss;
 /// <param name="Sold">True when at least one terminal is reported to stock it.</param>
 /// <param name="Size">Component size, or 0 when the item has none.</param>
 /// <param name="Type">The item's type, used to decide whether size means anything.</param>
-public sealed record Fact(bool Lootable, bool Craftable, bool Sold, int Size, string Type);
+/// <param name="Classification">
+/// Dotted class, e.g. <c>Ship.Cooler</c> or <c>FPS.WeaponAttachment.IronSight</c>.
+/// The leading segment is what separates a ship component from personal gear.
+/// </param>
+public sealed record Fact(bool Lootable, bool Craftable, bool Sold, int Size, string Type, string Classification);
 
 /// <summary>The whole fact table, as published.</summary>
 public sealed record FactFile(
@@ -110,7 +114,8 @@ public static class Facts
             entry.TryGetProperty("size", out var size) && size.ValueKind == JsonValueKind.Number
                 ? size.GetInt32()
                 : 0,
-            Str(entry, "type") ?? "?");
+            Str(entry, "type") ?? "?",
+            Str(entry, "classification") ?? "?");
     }
 
     private static string? Str(JsonElement element, string name) =>

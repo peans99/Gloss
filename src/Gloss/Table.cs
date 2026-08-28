@@ -104,8 +104,9 @@ public static class Table
             var rare = !sold && (fact.Lootable || fact.Craftable);
 
             var suffix = new StringBuilder();
+            var showSize = ShowsSize(fact, sizeSpeaks);
 
-            if (fact.Size > 0 && sizeSpeaks.Contains(fact.Type))
+            if (showSize)
                 suffix.Append('S').Append(fact.Size);
 
             if (rare)
@@ -119,7 +120,7 @@ public static class Table
             }
 
             if (rare) marked++;
-            if (fact.Size > 0 && sizeSpeaks.Contains(fact.Type)) sized++;
+            if (showSize) sized++;
 
             var becomes = name + " " + suffix;
 
@@ -141,6 +142,23 @@ public static class Table
 
         return new Build(marked, sized, untouched, unknown, samples, output.ToString());
     }
+
+    /// <summary>
+    /// Whether the size is worth the characters it costs.
+    /// </summary>
+    /// <remarks>
+    /// Ship components only. Size is the number you want when fitting a cooler
+    /// or a turret, and it is nowhere in the name. On personal gear it is either
+    /// meaningless - every helmet is size 1 - or already said better by the name
+    /// itself: a scope called "Gamma Duo LL (2x Holographic)" has told you the
+    /// magnification, and appending S1 only adds a second, different number to
+    /// argue with. The API's classification separates the two cleanly:
+    /// <c>Ship.Cooler</c> against <c>FPS.WeaponAttachment.IronSight</c>.
+    /// </remarks>
+    private static bool ShowsSize(Fact fact, HashSet<string> sizeVaries) =>
+        fact.Size > 0
+        && fact.Classification.StartsWith("Ship.", StringComparison.OrdinalIgnoreCase)
+        && sizeVaries.Contains(fact.Type);
 
     /// <summary>
     /// Types whose items are not all the same size.
