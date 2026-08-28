@@ -75,7 +75,7 @@ static int Build(Options o)
         return 1;
     }
 
-    var baseIni = ReadBaseTable(root);
+    var (baseIni, over) = ReadBaseTable(root);
 
     if (baseIni is null)
     {
@@ -94,6 +94,7 @@ static int Build(Options o)
     File.WriteAllText(Path.Combine(o.Out, "user.cfg"), "g_language = english\n", new UTF8Encoding(false));
 
     Console.WriteLine($"facts from {facts.Source}, built {facts.BuiltAt:yyyy-MM-dd}");
+    Console.WriteLine($"built on {over}");
     if (extra.Count > 0) Console.WriteLine($"plus {extra.Count} item classes you have receipts for");
     Console.WriteLine();
     Console.WriteLine($"  marked rare   : {built.Marked:N0}");
@@ -135,6 +136,16 @@ static int Install(Options o)
     var backups = Path.Combine(AppContext.BaseDirectory, "backup",
         DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss"));
 
+    // Named before anything is written, because afterwards the evidence is gone.
+    var displaced = Installed.Identify(
+        File.Exists(target) ? File.ReadAllText(target) : null, Installed.Load()) switch
+    {
+        Provenance.Gloss => "an earlier Gloss build",
+        Provenance.StarStrings => "StarStrings",
+        Provenance.Unknown => "another text mod",
+        _ => "the game's own text",
+    };
+
     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
     Directory.CreateDirectory(backups);
 
@@ -148,12 +159,17 @@ static int Install(Options o)
 
     File.Copy(source, target, overwrite: true);
 
-    if (!File.Exists(cfg))
-        File.Copy(Path.Combine(o.Out, "user.cfg"), cfg, overwrite: true);
+    var wroteCfg = !File.Exists(cfg);
 
-    File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "installed.txt"), $"{root}\n{backups}\n");
+    if (wroteCfg)
+        File.Copy(Path.Combine(o.Out, "user.cfg"), cfg, overwrite: true);
+    else if (!File.ReadAllText(cfg).Contains("g_language", StringComparison.OrdinalIgnoreCase))
+        Console.WriteLine("Note: your user.cfg has no g_language line, so the game may ignore this.");
+    new Installed(root, backups, Installed.HashOf(File.ReadAllText(source)),
+        DateTimeOffset.UtcNow, displaced, wroteCfg).Save();
 
     Console.WriteLine($"Installed into {root}");
+    Console.WriteLine($"Layered over {displaced}");
     Console.WriteLine($"What was there is in {backups}");
     Console.WriteLine("Restart Star Citizen to see it.");
 
@@ -162,54 +178,83 @@ static int Install(Options o)
 
 static int Remove(Options o)
 {
-    var record = Path.Combine(AppContext.BaseDirectory, "installed.txt");
-
-    if (!File.Exists(record))
+    if (Installed.Load() is not { } record)
     {
         Console.Error.WriteLine("No install recorded, so there is nothing to put back.");
         return 1;
     }
 
-    var lines = File.ReadAllLines(record);
-    var root = lines.ElementAtOrDefault(0);
-    var backups = lines.ElementAtOrDefault(1);
+    var target = Path.Combine(record.GameRoot, "data", "localization", "english", "global.ini");
+    var saved = Path.Combine(record.BackupDirectory, "global.ini");
+    var now = File.Exists(target) ? File.ReadAllText(target) : null;
 
-    if (root is null || backups is null || !Directory.Exists(backups))
+    // If the file is no longer the one we wrote, a patch or another mod has been
+    // over it since. Restoring our backup would undo their work rather than ours.
+    if (now is not null && Installed.HashOf(now) != record.Hash)
     {
-        Console.Error.WriteLine("The install record is unreadable; nothing was changed.");
+        Console.Error.WriteLine("The text file is not the one Gloss wrote - a patch or another mod");
+        Console.Error.WriteLine("has replaced it since. Nothing was changed. The backup is still at");
+        Console.Error.WriteLine($"  {record.BackupDirectory}");
+        Installed.Forget();
         return 1;
     }
-
-    var target = Path.Combine(root, "data", "localization", "english", "global.ini");
-    var saved = Path.Combine(backups, "global.ini");
 
     if (File.Exists(saved))
         File.Copy(saved, target, overwrite: true);
     else if (File.Exists(target))
         File.Delete(target);
 
-    File.Delete(record);
-    Console.WriteLine("Put back. Restart Star Citizen.");
+    // Only the one we created. An existing user.cfg is the player's.
+    if (record.WroteUserCfg)
+    {
+        var cfg = Path.Combine(record.GameRoot, "user.cfg");
+        if (File.Exists(cfg)) File.Delete(cfg);
+    }
+
+    Installed.Forget();
+    Console.WriteLine($"Put back {record.LayeredOver}. Restart Star Citizen.");
 
     return 0;
 }
 
-static string? ReadBaseTable(string root)
+/// <summary>
+/// The table to build on, and a phrase describing it.
+/// </summary>
+/// <remarks>
+/// A loose table on disk is usually another mod's work and is exactly what we
+/// want underneath us, so that installing this does not silently revert theirs.
+/// The exception is our own output: building on that would apply every mark a
+/// second time, so when the file is ours we reach past it to whatever it
+/// displaced, which is the copy taken at install.
+/// </remarks>
+static (string? Ini, string Over) ReadBaseTable(string root)
 {
-    // A loose table already on disk is another mod's work, and is what we build
-    // on so installing this does not silently revert theirs.
     var loose = Path.Combine(root, "data", "localization", "english", "global.ini");
+    var record = Installed.Load();
+    var text = File.Exists(loose) ? File.ReadAllText(loose) : null;
 
-    if (File.Exists(loose))
+    switch (Installed.Identify(text, record))
     {
-        Console.WriteLine("Building on the loose table already installed, so it survives.");
-        return File.ReadAllText(loose);
+        case Provenance.Gloss:
+            // Past our own file to what was under it, or the game's if nothing was.
+            var displaced = Path.Combine(record!.BackupDirectory, "global.ini");
+
+            if (File.Exists(displaced))
+                return (File.ReadAllText(displaced), $"the table Gloss displaced ({record.LayeredOver})");
+
+            break;
+
+        case Provenance.StarStrings:
+            return (text, "StarStrings, which will survive this");
+
+        case Provenance.Unknown:
+            return (text, "a text mod already installed, which will survive this");
     }
 
     var raw = new P4kArchive(P4kArchive.PathFor(root))
         .TryRead(Path.Combine("Data", "Localization", "english", "global.ini"));
 
-    return raw is null ? null : Encoding.UTF8.GetString(raw);
+    return raw is null ? (null, "") : (Encoding.UTF8.GetString(raw), "the game's own text");
 }
 
 static HashSet<string> LoadSold(string? path)

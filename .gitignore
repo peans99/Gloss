@@ -8,3 +8,10 @@ obj/
 out/
 *.ini
 facts.json
+
+# Your own purchase history. Personal, and no use to anyone else.
+receipts.txt
+
+# Install bookkeeping and displaced files live beside the binary.
+installed.json
+backup/
