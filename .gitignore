@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Generated output. The facts file is a release artifact, not source, and the
+# built table is 10 MB of somebody else's text.
+out/
+*.ini
+facts.json
