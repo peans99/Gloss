@@ -9,6 +9,7 @@ public sealed record Change(string ItemClass, string Was, string Becomes, string
 public sealed record Build(
     int Marked,
     int Sized,
+    int Classed,
     int Untouched,
     int Unknown,
     IReadOnlyList<Change> Samples,
@@ -39,6 +40,20 @@ public static class Table
     private const string RareMark = "*";
 
     /// <summary>
+    /// Everything Gloss adds sits inside these, and nothing the game ships does.
+    /// </summary>
+    /// <remarks>
+    /// The brackets are the point, not decoration. They say at a glance that a
+    /// suffix came from here rather than from CIG or another text mod, they make
+    /// the additions greppable in a 10 MB file, and they mean a reader who does
+    /// not know what "H" means can at least tell it was added. They cost two
+    /// characters against a four-character budget, which is why the budget moved
+    /// to six - see docs/tags.md.
+    /// </remarks>
+    private const char Open = '[';
+    private const char Close = ']';
+
+    /// <summary>
     /// Builds the annotated table.
     /// </summary>
     /// <param name="baseIni">
@@ -61,7 +76,7 @@ public static class Table
         var output = new StringBuilder(baseIni.Length + lines.Length);
         var samples = new List<Change>();
 
-        int marked = 0, sized = 0, untouched = 0, unknown = 0;
+        int marked = 0, sized = 0, classed = 0, untouched = 0, unknown = 0;
 
         for (var i = 0; i < lines.Length; i++)
         {
@@ -106,7 +121,11 @@ public static class Table
             var suffix = new StringBuilder();
             var showSize = ShowsSize(fact, sizeSpeaks);
 
-            if (showSize)
+            // Armour and ship components are disjoint, so at most one of these
+            // ever contributes: the widest suffix is [S4*], six characters.
+            if (ArmourClass(fact) is { } armour)
+                suffix.Append(armour);
+            else if (showSize)
                 suffix.Append('S').Append(fact.Size);
 
             if (rare)
@@ -121,16 +140,21 @@ public static class Table
 
             if (rare) marked++;
             if (showSize) sized++;
+            if (ArmourClass(fact) is not null) classed++;
 
-            var becomes = name + " " + suffix;
+            var tag = string.Concat(Open, suffix.ToString(), Close);
+            var becomes = name + " " + tag;
 
             if (samples.Count < 30)
             {
-                samples.Add(new Change(itemClass, name, becomes,
-                    rare ? (fact.Lootable ? "loot only" : "craft only") : "size"));
+                var why = rare
+                    ? (fact.Lootable ? "loot only" : "craft only")
+                    : ArmourClass(fact) is not null ? "armour class" : "component size";
+
+                samples.Add(new Change(itemClass, name, becomes, why));
             }
 
-            Emit(key + "=" + value + " " + suffix);
+            Emit(key + "=" + value + " " + tag);
             continue;
 
             void Emit(string text)
@@ -140,7 +164,38 @@ public static class Table
             }
         }
 
-        return new Build(marked, sized, untouched, unknown, samples, output.ToString());
+        return new Build(marked, sized, classed, untouched, unknown, samples, output.ToString());
+    }
+
+    /// <summary>
+    /// The weight class of a piece of armour, as one letter.
+    /// </summary>
+    /// <remarks>
+    /// Light, Medium and Heavy are the only classes the data carries. There is
+    /// no super-heavy anywhere in it, so none is invented. The rest of the
+    /// vocabulary is not a weight at all - "Helmet" is a slot, "Personal" is a
+    /// backpack, "UNDEFINED" is nothing - and those get no letter rather than a
+    /// guessed one.
+    ///
+    /// Undersuits are taken from the type instead: almost all of them carry
+    /// UNDEFINED as their sub-type, and "undersuit" is the useful fact about
+    /// one anyway.
+    /// </remarks>
+    private static string? ArmourClass(Fact fact)
+    {
+        if (!fact.Classification.StartsWith("FPS.Armor", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (fact.Type.EndsWith("Undersuit", StringComparison.OrdinalIgnoreCase))
+            return "U";
+
+        return fact.SubType switch
+        {
+            "Light" or "LightArmor" => "L",
+            "Medium" => "M",
+            "Heavy" => "H",
+            _ => null,
+        };
     }
 
     /// <summary>

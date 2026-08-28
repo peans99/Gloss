@@ -99,6 +99,7 @@ static int Build(Options o)
     Console.WriteLine();
     Console.WriteLine($"  marked rare   : {built.Marked:N0}");
     Console.WriteLine($"  given a size  : {built.Sized:N0}");
+    Console.WriteLine($"  armour classed: {built.Classed:N0}");
     Console.WriteLine($"  left alone    : {built.Untouched:N0}");
     Console.WriteLine($"  not in facts  : {built.Unknown:N0}   (left alone - unknown is not rare)");
     Console.WriteLine();

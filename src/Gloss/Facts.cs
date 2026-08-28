@@ -13,7 +13,12 @@ namespace Gloss;
 /// Dotted class, e.g. <c>Ship.Cooler</c> or <c>FPS.WeaponAttachment.IronSight</c>.
 /// The leading segment is what separates a ship component from personal gear.
 /// </param>
-public sealed record Fact(bool Lootable, bool Craftable, bool Sold, int Size, string Type, string Classification);
+/// <param name="SubType">
+/// For armour, the weight class - Light, Medium or Heavy. Also carries slot
+/// words and UNDEFINED for pieces that have no class, which are not shown.
+/// </param>
+public sealed record Fact(
+    bool Lootable, bool Craftable, bool Sold, int Size, string Type, string Classification, string SubType);
 
 /// <summary>The whole fact table, as published.</summary>
 public sealed record FactFile(
@@ -115,7 +120,8 @@ public static class Facts
                 ? size.GetInt32()
                 : 0,
             Str(entry, "type") ?? "?",
-            Str(entry, "classification") ?? "?");
+            Str(entry, "classification") ?? "?",
+            Str(entry, "sub_type") ?? "");
     }
 
     private static string? Str(JsonElement element, string name) =>

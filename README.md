@@ -8,10 +8,15 @@ the game itself displays — while you are standing over the thing it describes,
 rather than on a second screen you are not looking at.
 
 ```
-Gamma Duo (2x Holographic)          you can buy another whenever you like
-Gamma Duo LL (2x Holographic) *     nothing known to sell this one
-REP-VS EMP Generator S4             and it is a size 4
+Gamma Duo (2x Holographic)             you can buy another whenever you like
+Gamma Duo LL (2x Holographic) [*]      nothing known to sell this one
+REP-VS EMP Generator [S4]              a size 4 component
+Berserker Helmet [H*]                  heavy armour, and nothing sells it
+Ace Interceptor Racing Suit [U*]       an undersuit, same
 ```
+
+Everything Gloss adds sits inside square brackets, so it is obvious what came
+from here and what is the game's own text.
 
 It writes text. No code injection, no hooking, no game binary touched, and
 `gloss remove` puts back exactly what was there.
@@ -56,14 +61,19 @@ data says it can be looted or crafted *and* nothing is known to sell it. Marking
 on a missing price alone put a mark on three quarters of all gear, which says
 nothing at all; requiring the positive flag halves it.
 
+**`L` `M` `H` `U` — the armour class**: light, medium, heavy, or undersuit.
+Light, Medium and Heavy are the only classes the data carries; there is no
+super-heavy in it, so none is invented, and pieces with no class get no letter.
+
 **`S4` — the component size**, for ship components only, and only where size
 varies within its type. Every helmet is size 1, so the number would be noise;
 thrusters and turrets run S1–S6, where it is the number you actually want. A
 scope already says `2x` in its name and does not need `S1` argued next to it.
 
-Names carry at most **four characters including the separator**. That budget is
-measured: the median item name is 21 characters and 30.8% are already over 24,
-so four leaves a median name inside the game's own 75th percentile. See
+Names carry at most **six characters including the separator and brackets**.
+That budget is measured: the median item name is 21 characters and 30.8% are
+already over 24, so the widest tag leaves a median name at 27 — just past the
+game's own 75th percentile and well inside its 90th. See
 [docs/tags.md](docs/tags.md).
 
 ## Living with other text mods
