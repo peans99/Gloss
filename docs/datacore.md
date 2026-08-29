@@ -255,6 +255,32 @@ reference. An inline class ends the walk rather than being skipped by a guessed
 width, because a wrong width there reads a neighbouring field and returns
 something that looks like an answer.
 
+### Arrays, pointers, and the check that grades the whole width table
+
+An array property stores a count and a first index, not the items; the items sit
+in the value array for its type. A strong pointer is eight bytes — a struct index
+and which instance of it — so following one reaches another record's fields.
+
+The obstacle was inline classes. A property of type `0x0010` is a struct laid out
+in place, and its width is that struct's size, carried in the property's own
+`index` field: `defaultEditorColor` points at `RGB`, which is 12 bytes. Without
+that the field walk has to stop at the first inline class, which is two fields
+before `Components` on every entity in the game.
+
+With it, a struct's fields can be summed and compared to the size it declares:
+
+```
+EntityClassDefinition declares 66
+4 + 4 + 1 + 1 + 12 + 20 + 8 + 8 + 8  =  66
+```
+
+Run across the file, **5,862 structs add up and none does not**. That grades
+every width at once — a single wrong one would fail on every struct using that
+type — and it is worth keeping as a permanent assertion rather than a one-off.
+
+The Gladius then yields 65 components, `VehicleComponentParams` and
+`SCItemPurchasableParams` among them, which is where ship specifications live.
+
 ### Commodity names, end to end
 
 ```
