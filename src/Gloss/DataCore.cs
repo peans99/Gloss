@@ -185,6 +185,57 @@ public sealed class DataCore
         return Blob(BitConverter.ToUInt32(_data, (int)(_structOffset + index * 16L)));
     }
 
+    /// <summary>One field on a struct.</summary>
+    /// <param name="DataType">The DataForge type code, e.g. 0x000A for a string.</param>
+    /// <param name="ConversionType">0 is a plain attribute; 1-3 are array forms.</param>
+    public sealed record Property(string Name, ushort DataType, ushort ConversionType);
+
+    private long PropertyOffset => _structOffset + StructDefinitionCount * 16L;
+
+    /// <summary>
+    /// Every property on a struct, its inherited ones first.
+    /// </summary>
+    /// <remarks>
+    /// A struct declares only its own fields and points at its parent, so the
+    /// full layout is the parent chain walked from the root down - inherited
+    /// fields are laid out before the struct's own, and reading them in the
+    /// wrong order misaligns every value after the first.
+    /// </remarks>
+    public IReadOnlyList<Property> StructProperties(int index)
+    {
+        var chain = new List<int>();
+
+        for (var i = index; i >= 0 && i < StructDefinitionCount && chain.Count < 32;)
+        {
+            chain.Insert(0, i);
+            var parent = (int)BitConverter.ToUInt32(_data, (int)(_structOffset + i * 16L + 4));
+            if (parent == i || parent < 0 || parent >= StructDefinitionCount) break;
+            i = parent;
+        }
+
+        var all = new List<Property>();
+
+        foreach (var s in chain)
+        {
+            var at = _structOffset + s * 16L;
+            var count = BitConverter.ToUInt16(_data, (int)(at + 8));
+            var first = BitConverter.ToUInt16(_data, (int)(at + 10));
+
+            for (var p = 0; p < count; p++)
+            {
+                var pat = PropertyOffset + (first + p) * 12L;
+                if (pat + 12 > _data.LongLength) break;
+
+                all.Add(new Property(
+                    Blob(BitConverter.ToUInt32(_data, (int)pat)),
+                    BitConverter.ToUInt16(_data, (int)(pat + 6)),
+                    (ushort)(BitConverter.ToUInt16(_data, (int)(pat + 8)) & 0xFF)));
+            }
+        }
+
+        return all;
+    }
+
     /// <summary>Every record, with its path and type.</summary>
     public IEnumerable<DataRecord> Records()
     {

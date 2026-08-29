@@ -201,7 +201,37 @@ carries the display names under `items_commodities_*`.
 
 **Quantum Wake's 110 MB dependency is breakable.**
 
-Still ahead: property values. Reading *which* struct a record is and where its
+### Where commodity names actually live
+
+Joining GUID to class name and looking the class up in `global.ini` gets **116
+of 203** — every commodity with an `items_commodities_<class>` key. The other 87
+have no key under any family matching their class name, and trying `item_Name`
+as well adds nothing.
+
+They are `ResourceType` records, and the name is a property:
+
+```
+ResourceType:
+   type=0x000D  displayName      <- 0x000D is varLocale, a localisation reference
+   type=0x000D  description
+   type=0x0110  densityType
+   type=0x000A  defaultThumbnailPath
+```
+
+`ResourceType.Aluminum` is the record whose hash matched the logged GUID, so the
+full chain is:
+
+```
+resourceGUID  ->  ResourceType record  ->  displayName (locale)  ->  global.ini  ->  the text
+```
+
+Struct properties read correctly - the parent chain has to be walked root-first,
+because inherited fields are laid out before a struct's own and reading them in
+declaration order misaligns everything after the first.
+
+Still ahead: instance values. Knowing a struct has a `displayName` at a given
+position is done; reading *that record's* value needs the data-mapping table,
+the computed instance size, and the typed value arrays. Reading *which* struct a record is and where its
 fields live is done; reading the fields themselves needs the typed value arrays
 and the data-mapping table.
 
