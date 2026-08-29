@@ -171,6 +171,22 @@ rather than against the format:
 Record areas: 27,127 entities, 24,024 dialoguecontextbank, 18,878 tagdatabase,
 2,584 missionbroker, 2,471 missiondata.
 
+### Not solved: the resource GUID
+
+The blob does **not** give Quantum Wake its GUID-to-name mapping, and this is
+worth stating plainly because it looked like it would.
+
+Record definitions carry a 16-byte hash — 116,921 of them, all distinct, none
+empty, and `unforge` writes it as the record's `__ref`. It is not the id the
+logs use. Agricium's dataset GUID `dc6fbcbb-5990-4ed5-82ee-93152dab7845` does
+not appear anywhere in the 316 MB file: not little-endian, not big-endian, not
+as text. Zero occurrences.
+
+So the community dataset's commodity ids come from somewhere other than this
+file, and the 110 MB dependency does not fall to a DataCore reader alone. What
+remains to try: whether the logged `resourceGUID` appears in any other p4k
+entry, and whether scunpacked derives its ids rather than reading them.
+
 Still ahead: property values. Reading *which* struct a record is and where its
 fields live is done; reading the fields themselves needs the typed value arrays
 and the data-mapping table.

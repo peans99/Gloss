@@ -165,11 +165,15 @@ public sealed class DataCore
         {
             var at = _recordOffset + i * (long)_recordSize;
 
+            // V8: name, filename, devteam, struct index, then the 16-byte hash.
+            // That hash is the entity id the game writes into Game.log, which is
+            // what makes this file a GUID-to-name table without a download.
             var name = Blob(BitConverter.ToUInt32(_data, (int)at));
             var fileName = Text(BitConverter.ToUInt32(_data, (int)(at + 4)));
             var structIndex = BitConverter.ToInt32(_data, (int)(at + 12));
+            var hash = new Guid(_data.AsSpan((int)(at + 16), 16));
 
-            yield return new DataRecord(name, fileName, structIndex, Guid.Empty);
+            yield return new DataRecord(name, fileName, structIndex, hash);
         }
     }
 }
