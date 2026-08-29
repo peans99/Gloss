@@ -281,6 +281,31 @@ type — and it is worth keeping as a permanent assertion rather than a one-off.
 The Gladius then yields 65 components, `VehicleComponentParams` and
 `SCItemPurchasableParams` among them, which is where ship specifications live.
 
+### Item facts, checked against the API they replace
+
+`SItemDefinition` carries `Type`, `SubType`, `Size`, `Grade` and `Manufacturer`
+— the whole of what the wiki API serves per item. It is an inline class on
+`SAttachableComponentParams`, which is one of an entity's Components, so getting
+there needs the pointer array and the inline-class width together.
+
+Read for every item and compared with the API's own answers:
+
+| | |
+|---|---|
+| items read from the blob | **12,296** |
+| size agrees | 12,257 (100%) |
+| type agrees | **12,296 (100%)** |
+
+`AbsoluteZero` reads `size=2 grade=2 type=Cooler` where the API says
+`size=2 grade=B type=Cooler` — grade is the same value as an ordinal and needs
+mapping to a letter, nothing more.
+
+Enums store a four-byte offset into the text table rather than an index, so an
+enum field yields the option's own name without a lookup table.
+
+That is the last of it. Everything `facts.json` currently costs 123 requests to
+fetch is in the install.
+
 ### Commodity names, end to end
 
 ```

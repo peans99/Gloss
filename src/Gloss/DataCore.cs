@@ -460,6 +460,68 @@ public sealed class DataCore
         return [];
     }
 
+    /// <summary>
+    /// Where a named field sits inside an instance, and what type it is.
+    /// </summary>
+    /// <remarks>
+    /// Returns -1 when the field is absent. Inline classes are crossed rather
+    /// than stopped at, since their width is the struct they are.
+    /// </remarks>
+    public (long At, Property? Field) FieldAt(long instance, int structIndex, string name)
+    {
+        if (instance < 0) return (-1, null);
+
+        var at = instance;
+
+        foreach (var p in StructProperties(structIndex))
+        {
+            if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return (at, p);
+
+            var width = Width(p);
+            if (width <= 0) return (-1, null);
+            at += width;
+        }
+
+        return (-1, null);
+    }
+
+    /// <summary>An integer field, or null.</summary>
+    public int? Int32At(long instance, int structIndex, string name)
+    {
+        var (at, field) = FieldAt(instance, structIndex, name);
+
+        return at >= 0 && field is { ConversionType: 0, DataType: 0x0004 } && at + 4 <= _data.LongLength
+            ? BitConverter.ToInt32(_data, (int)at)
+            : null;
+    }
+
+    /// <summary>
+    /// An enum field's name, or null.
+    /// </summary>
+    /// <remarks>
+    /// An enum stores a four-byte offset into the text table, so the value is
+    /// the option's own name rather than an index needing a lookup table.
+    /// </remarks>
+    public string? EnumAt(long instance, int structIndex, string name)
+    {
+        var (at, field) = FieldAt(instance, structIndex, name);
+
+        if (at < 0 || field is not { ConversionType: 0, DataType: 0x000F } || at + 4 > _data.LongLength)
+            return null;
+
+        var value = Text(BitConverter.ToUInt32(_data, (int)at));
+        return value.Length > 0 ? value : null;
+    }
+
+    /// <summary>The struct index of a named struct, or -1.</summary>
+    public int StructIndexOf(string name)
+    {
+        for (var i = 0; i < StructDefinitionCount; i++)
+            if (StructName(i).Equals(name, StringComparison.Ordinal)) return i;
+
+        return -1;
+    }
+
     /// <summary>Where a pointed-at instance begins, or -1.</summary>
     public long InstanceAt(Pointer pointer)
     {
