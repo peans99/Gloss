@@ -171,21 +171,35 @@ rather than against the format:
 Record areas: 27,127 entities, 24,024 dialoguecontextbank, 18,878 tagdatabase,
 2,584 missionbroker, 2,471 missiondata.
 
-### Not solved: the resource GUID
+### Solved: the resource GUID, and the byte order that hid it
 
-The blob does **not** give Quantum Wake its GUID-to-name mapping, and this is
-worth stating plainly because it looked like it would.
+**All 203 commodity GUIDs the community dataset provides resolve in the blob.**
+The logged `resourceGUID` is a record hash after all.
 
-Record definitions carry a 16-byte hash — 116,921 of them, all distinct, none
-empty, and `unforge` writes it as the record's `__ref`. It is not the id the
-logs use. Agricium's dataset GUID `dc6fbcbb-5990-4ed5-82ee-93152dab7845` does
-not appear anywhere in the 316 MB file: not little-endian, not big-endian, not
-as text. Zero occurrences.
+This was nearly recorded as a dead end, and the reason is worth keeping. Read as
+a plain .NET GUID, Aluminum's record gives
+`bbef43d2-080a-48c7-4043-ed2183691a90` — while the logs and the dataset say
+`48c7080a-bbef-43d2-901a-698321ed4340`. Same nibbles, regrouped. That is
+convincing enough to look like a different id space, and searching the whole
+316 MB file for the little-endian and big-endian forms returns zero, which
+appears to confirm it.
 
-So the community dataset's commodity ids come from somewhere other than this
-file, and the 110 MB dependency does not fall to a DataCore reader alone. What
-remains to try: whether the logged `resourceGUID` appears in any other p4k
-entry, and whether scunpacked derives its ids rather than reading them.
+It is stored as the **big-endian GUID with each 8-byte half reversed** — neither
+layout anybody tries. The tell was not the byte search but the clustering: every
+parsed hash carried `4000` or `4100` in the same position, and real GUIDs do not
+cluster.
+
+| | |
+|---|---|
+| dataset commodities | 203 |
+| resolved in the blob | **203 (100%)** |
+| names matching exactly | 123 |
+
+The other 80 differ only in presentation — `Ore_Agricium` against the dataset's
+`Agricium (Ore)` — which is formatting the dataset applies. `global.ini` already
+carries the display names under `items_commodities_*`.
+
+**Quantum Wake's 110 MB dependency is breakable.**
 
 Still ahead: property values. Reading *which* struct a record is and where its
 fields live is done; reading the fields themselves needs the typed value arrays

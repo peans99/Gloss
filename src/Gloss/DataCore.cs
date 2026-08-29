@@ -145,6 +145,33 @@ public sealed class DataCore
         return Encoding.UTF8.GetString(_data, (int)at, (int)(end - at));
     }
 
+    /// <summary>
+    /// The 16 bytes a record stores as its id, as the GUID the game uses.
+    /// </summary>
+    /// <remarks>
+    /// Stored as the big-endian GUID with each 8-byte half reversed, which is
+    /// neither of the two layouts anybody tries first. Reading it as a plain
+    /// .NET GUID produces the same nibbles regrouped - Aluminum's
+    /// 48c7080a-bbef-43d2-901a-698321ed4340 comes back as
+    /// bbef43d2-080a-48c7-4043-ed2183691a90 - which is convincing enough to be
+    /// mistaken for a different id space entirely. It is not: it is the id the
+    /// logs carry, and this is the whole GUID-to-name table.
+    /// </remarks>
+    private static Guid ReadHash(ReadOnlySpan<byte> raw)
+    {
+        Span<byte> guid = stackalloc byte[16];
+
+        for (var i = 0; i < 8; i++) guid[i] = raw[7 - i];
+        for (var i = 0; i < 8; i++) guid[8 + i] = raw[15 - i];
+
+        // That yields big-endian; .NET wants the first three fields swapped.
+        guid[..4].Reverse();
+        guid[4..6].Reverse();
+        guid[6..8].Reverse();
+
+        return new Guid(guid);
+    }
+
     /// <summary>A type name, which lives in the blob table.</summary>
     public string Blob(uint offset) => StringAt(_blobOffset, offset);
 
@@ -171,7 +198,7 @@ public sealed class DataCore
             var name = Blob(BitConverter.ToUInt32(_data, (int)at));
             var fileName = Text(BitConverter.ToUInt32(_data, (int)(at + 4)));
             var structIndex = BitConverter.ToInt32(_data, (int)(at + 12));
-            var hash = new Guid(_data.AsSpan((int)(at + 16), 16));
+            var hash = ReadHash(_data.AsSpan((int)(at + 16), 16));
 
             yield return new DataRecord(name, fileName, structIndex, hash);
         }
