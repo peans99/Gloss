@@ -271,7 +271,23 @@ ResourceType.Aluminum -> @items_commodities_aluminum -> "Aluminum"
 | **disagreeing with the dataset** | **0** |
 
 The 25 that do not resolve have a `displayName` key absent from the English
-table; none of them resolve to a *wrong* name.
+table — `@items_commodities_iron` among them, well-formed and simply not filled
+in. None resolves to a *wrong* name. Two are not commodities at all: the dataset
+carries `Life Support` pointing at a UI tab key and `Power:` at a scan readout,
+which is noise in the dump rather than in the game.
+
+Falling back to the record's own class name, spaced at word boundaries, closes
+it completely:
+
+| | |
+|---|---|
+| named | **203 of 203 (100%)** |
+| identical to the dataset | 185 (91%) |
+| worded differently | 18 — `Ore Agricium` against `Agricium (Ore)` |
+| wrong | **0** |
+
+On the commodities this install has actually traded, 12 of 13 come straight from
+the English table and the 13th — Iron — from the fallback.
 
 This is also why joining on class name only reached 116: a commodity's name key
 need not mention its class at all. "Ace Interceptor Helmet" is
