@@ -75,6 +75,65 @@ instances that index into them. The format is documented by community work
 a few hundred lines before anything useful comes out, and it moves with game
 versions.
 
+## The decision, 2026-08-28
+
+Game files plus UEX, and nothing else.
+
+Shop stock settles it. It is **not** in the game files: `SCShop_*` - the shop
+names `Game.log` records - appear zero times, and `ShopLayout`, `ShopCatalog`
+and `ShopInventory` exist only as type and UI names with no records behind
+them. The shop hits are NPC shopkeeper actors. Stock is server-side, like
+prices, which is why UEX exists at all.
+
+So "is it sold" is permanently an outside fact, and everything else comes from
+the installed game:
+
+| | from the wiki API | from game files + UEX |
+|---|---|---|
+| requests per sync | 123, to a volunteer project | **1**, to `items_prices_all` |
+| structural data | a derived copy | the installed patch |
+| staleness | until the next release | none |
+| wiki disappears | dead | unaffected |
+
+The heavy dependency is the one that goes: 12,296 full item records, 37 fields
+each, from a project with no bulk endpoint that refuses a default user-agent.
+What remains is a single call to the one service built to answer it, which
+Quantum Wake already makes.
+
+Without any network it still works, on loot, craft, size, class and grade. Only
+the `*` needs UEX, and a player's own receipts can stand in for it.
+
+Extraction is a release-time job: `gloss extract` reads the local install, the
+result is published as `facts.json`, and users who would rather not extract get
+the published file.
+
+## Reading it: where the strings are
+
+Finding the text does not require trusting a guessed header layout, which is
+just as well - assuming the text follows the header directly finds nothing,
+because the definition arrays sit in between.
+
+Scanning for contiguous runs of printable-or-null bytes finds exactly two
+regions over 100 KB, and both contain known item classes and record paths:
+
+| offset | bytes |
+|---|---|
+| `0x002C59A6A` | 14,950,072 |
+| `0x0023613CA` | 9,406,110 |
+
+Header words 28 and 29 hold 17,165,925 and 7,190,252 - the declared lengths of
+two text sections, near enough to the scanned regions to be the cross-check a
+real reader should use rather than scanning.
+
+Validate against something known rather than against the format: this install
+has looted `gmni_lmg_ballistic_01`, so a parser that cannot find that string has
+not found the text section. The 109 looted classes and 147 bought ones are the
+test set for everything built on top.
+
+What is still ahead is the part that turns strings into facts: the struct and
+property definitions, the enum tables, the typed value arrays, and the record
+instances that index into them. Locating the text is the easy half.
+
 ## Why Quantum Wake might want it too
 
 The same file would answer questions that project currently answers with a
