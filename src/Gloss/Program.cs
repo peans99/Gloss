@@ -34,6 +34,9 @@ static int Help()
           --page-size <n>        Items per API request while syncing (default: 100)
           --sold <file>          Extra item classes known to be sold, one per line.
                                  Kiosk receipts cannot be wrong, so they win.
+          --from-game            Ignore any installed text mod and build on the
+                                 game's own table. For producing a file for
+                                 someone else.
 
         Only 'install' and 'remove' write outside this folder.
         """);
@@ -75,7 +78,7 @@ static int Build(Options o)
         return 1;
     }
 
-    var (baseIni, over) = ReadBaseTable(root);
+    var (baseIni, over) = ReadBaseTable(root, o.FromGame);
 
     if (baseIni is null)
     {
@@ -228,11 +231,16 @@ static int Remove(Options o)
 /// second time, so when the file is ours we reach past it to whatever it
 /// displaced, which is the copy taken at install.
 /// </remarks>
-static (string? Ini, string Over) ReadBaseTable(string root)
+static (string? Ini, string Over) ReadBaseTable(string root, bool fromGame)
 {
-    var loose = Path.Combine(root, "data", "localization", "english", "global.ini");
+    // A file built for other people has to come from the game's own text. What
+    // happens to be installed on the machine cutting the release is that
+    // person's business and must not travel.
+    var loose = fromGame
+        ? null
+        : Path.Combine(root, "data", "localization", "english", "global.ini");
     var record = Installed.Load();
-    var text = File.Exists(loose) ? File.ReadAllText(loose) : null;
+    var text = loose is not null && File.Exists(loose) ? File.ReadAllText(loose) : null;
 
     switch (Installed.Identify(text, record))
     {
@@ -275,14 +283,16 @@ static HashSet<string> LoadSold(string? path)
 }
 
 /// <summary>Command-line options, with the game folder found the usual way.</summary>
-internal sealed record Options(string? Path, string Facts, string Out, int PageSize, string? Sold)
+internal sealed record Options(
+    string? Path, string Facts, string Out, int PageSize, string? Sold, bool FromGame)
 {
     public static Options Parse(string[] args) => new(
         Value(args, "--path"),
         Value(args, "--facts") ?? "facts.json",
         Value(args, "--out") ?? "out",
         int.TryParse(Value(args, "--page-size"), out var n) && n > 0 ? n : 100,
-        Value(args, "--sold"));
+        Value(args, "--sold"),
+        args.Contains("--from-game"));
 
     private static string? Value(string[] args, string name)
     {

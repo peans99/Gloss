@@ -7,21 +7,24 @@
     changes meaningfully when CIG patch, so a release is cut by hand when a
     patch lands rather than on every commit.
 
-    What comes out is the tool and the facts - never a built global.ini. That
-    file is Cloud Imperium's text with our annotations, and it cannot layer over
-    another text mod: only one loose table wins, so a published one would force
-    everybody to choose between Gloss and StarStrings. Building on the user's
-    own machine avoids both problems. See NOTICE.
+    Two assets come out. The tool and facts.json are the ones to prefer: they
+    build on whatever text mod the user already has, and pick up their own
+    receipts.
+
+    The drop-in global.ini is for people who will not run a command line. It is
+    built with -from-game and without -sold, deliberately: whatever is installed
+    on the machine cutting the release is that person's business, and their
+    receipts would quietly say which items they had bought. It replaces any
+    other text mod, and the release notes have to say so.
 
 .PARAMETER Version
-    Release version, e.g. 0.1.0. Written into the binary and the folder name.
+    Release version, e.g. 0.2.0. Written into the binary and the folder name.
 
 .PARAMETER SkipSync
-    Reuse the facts.json already here instead of fetching. For a rebuild that
-    changes only the tool.
+    Reuse the facts.json already here instead of fetching.
 
 .EXAMPLE
-    .\publish.ps1 -Version 0.1.0
+    .\publish.ps1 -Version 0.2.0
 #>
 [CmdletBinding()]
 param(
@@ -71,8 +74,52 @@ $zip = Join-Path $PSScriptRoot "release\Gloss-$Version-win-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path "$out\*" -DestinationPath $zip
 
+# ---- the drop-in, for people who will not run a command line ----
+
+Write-Host 'Building the drop-in table.' -ForegroundColor Cyan
+
+$drop = Join-Path $PSScriptRoot "release\dropin-$Version"
+if (Test-Path $drop) { Remove-Item $drop -Recurse -Force }
+New-Item -ItemType Directory $drop | Out-Null
+
+# --from-game and no --sold. Both matter: one keeps whatever is installed here
+# out of the file, the other keeps this machine's purchase history out of it.
+& (Join-Path $out 'Gloss.exe') build --facts (Join-Path $out 'facts.json') --out $drop --from-game
+if ($LASTEXITCODE -ne 0) { throw 'Drop-in build failed.' }
+
+$howTo = @"
+Gloss $Version - drop-in table
+
+Copy both files into your Star Citizen channel folder, keeping the layout:
+
+  <StarCitizen>/LIVE/data/localization/english/global.ini
+  <StarCitizen>/LIVE/user.cfg
+
+Back up anything already at those paths first. Restart the game afterwards.
+
+THIS REPLACES ANY OTHER TEXT MOD. Only one loose table can win, so if you use
+StarStrings this file takes its place. To keep both, use the tool instead - it
+builds on top of whatever you already have.
+
+It also cannot know what you have bought. Running the tool yourself, with your
+own kiosk receipts, marks fewer things wrongly.
+
+To undo: delete global.ini, and user.cfg if you did not have one before.
+
+Facts fetched $built, $count items.
+"@
+
+$howTo | Set-Content (Join-Path $drop 'HOW-TO.txt') -Encoding utf8
+Copy-Item 'NOTICE' $drop
+Copy-Item 'CREDITS.md' $drop
+
+$dropZip = Join-Path $PSScriptRoot "release\Gloss-$Version-dropin.zip"
+if (Test-Path $dropZip) { Remove-Item $dropZip -Force }
+Compress-Archive -Path "$drop\*" -DestinationPath $dropZip
+
 Write-Host ''
 Write-Host "  $zip" -ForegroundColor Green
+Write-Host "  $dropZip" -ForegroundColor Green
 Write-Host "  facts: $count items, fetched $built"
 Write-Host ''
-Write-Host 'Nothing has been uploaded. Attach the zip to a release when you are ready.'
+Write-Host 'Nothing has been uploaded. Attach both to a release when you are ready.'
