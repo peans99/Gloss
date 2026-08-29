@@ -69,7 +69,8 @@ public static class Table
     public static Build Run(
         string baseIni,
         IReadOnlyDictionary<string, Fact> facts,
-        ISet<string>? alsoSold = null)
+        ISet<string>? alsoSold = null,
+        bool componentsAlreadyLabelled = false)
     {
         var sizeSpeaks = TypesWhereSizeVaries(facts);
         var lines = baseIni.Split('\n');
@@ -122,11 +123,11 @@ public static class Table
             var showSize = ShowsSize(fact, sizeSpeaks);
 
             // Armour and ship components are disjoint, so at most one of these
-            // ever contributes: the widest suffix is [S4*], six characters.
+            // ever contributes.
             if (ArmourClass(fact) is { } armour)
                 suffix.Append(armour);
-            else if (showSize)
-                suffix.Append('S').Append(fact.Size);
+            else if (showSize && !componentsAlreadyLabelled)
+                suffix.Append(Component(fact));
 
             if (rare)
                 suffix.Append(RareMark);
@@ -139,7 +140,7 @@ public static class Table
             }
 
             if (rare) marked++;
-            if (showSize) sized++;
+            if (showSize && !componentsAlreadyLabelled) sized++;
             if (ArmourClass(fact) is not null) classed++;
 
             var tag = string.Concat(Open, suffix.ToString(), Close);
@@ -165,6 +166,40 @@ public static class Table
         }
 
         return new Build(marked, sized, classed, untouched, unknown, samples, output.ToString());
+    }
+
+    /// <summary>
+    /// A ship component as class, size and grade - "Mil2B".
+    /// </summary>
+    /// <remarks>
+    /// The three facts anyone fitting a ship wants, and none of them is in the
+    /// name. The abbreviations are three letters because Civilian and
+    /// Competition share an initial, which is the same reason StarStrings picked
+    /// Civ and Cmp; matching their vocabulary costs nothing and means a reader
+    /// who knows one tool can read the other.
+    ///
+    /// Suppressed entirely when a text mod already labels components - see
+    /// componentsAlreadyLabelled. StarStrings writes "Mil/1/C Bracer" as a
+    /// prefix, and adding "[Mil1C]" after it would say the same thing twice in
+    /// two notations.
+    /// </remarks>
+    private static string Component(Fact fact)
+    {
+        var cls = fact.Class switch
+        {
+            "Military" => "Mil",
+            "Civilian" => "Civ",
+            "Industrial" => "Ind",
+            "Competition" => "Cmp",
+            "Stealth" => "Sth",
+            _ => "",
+        };
+
+        // Grade is a single letter A-D when present, and worth having even when
+        // the class is not: "S2B" still says more than "S2".
+        var grade = fact.Grade is { Length: 1 } g ? g : "";
+
+        return cls + "S" + fact.Size + grade;
     }
 
     /// <summary>

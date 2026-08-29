@@ -5,8 +5,9 @@ and inventory grid the name appears in, and StarStrings shortens names for a
 reason. The description is the cheap channel: it already averages 261
 characters and nobody is squinting at a grid cell to read it.
 
-So the rule is: **the name carries at most six characters, separator and
-brackets included. Everything else goes in the description.**
+So the rule is: **the name carries at most ten characters, separator and
+brackets included** — and that ceiling is only reached by a fully described ship
+component. Everything else goes in the description.
 
 ## The budget is measured
 
@@ -21,10 +22,14 @@ Across the 9,575 item names in the 4.10 table:
 | longest real name | 61 |
 
 30.8% of names are already longer than 24 characters. The widest suffix Gloss
-produces is ` [S4*]`, six characters, putting a median name at 27 — just past
-the game's own 75th percentile and well inside its 90th. It renders as well as
-the third of names CIG already ship longer than that. Anything more is guesswork
-about a UI we cannot measure.
+produces is ` [CmpS2B*]` at ten characters, putting a median name at 31 — the
+game's own 90th percentile, and shorter than the 163 names CIG already ship past
+40. Armour and unsold items are far shorter: ` [H*]` is five.
+
+Ten is the ceiling because a component says three things at once — class, size
+and grade — and all three are what somebody fitting a ship actually wants. It is
+also comparable to StarStrings' own `Mil/1/C ` prefix, which is eight, so the
+cost is one another mod already judged acceptable.
 
 Two of those six are the brackets, and they earn their place: they say at a
 glance that a suffix came from Gloss rather than from CIG or another text mod,
@@ -62,6 +67,16 @@ and a size.
 
 **`*` — nothing known to sell it.** A floor, never a rarity rating. See
 [sources.md](sources.md): absence of a price is mostly absence of data.
+
+**`CmpS2B` — a ship component**: class, size, grade. Class is only known for
+333 of 3,011 components, so most read `S2B`; grade is known for all of them. The
+abbreviations match StarStrings' — Civ, Mil, Ind, Cmp, Sth — because Civilian
+and Competition share an initial, and a reader who knows one tool should be able
+to read the other.
+
+Suppressed entirely when a text mod is already labelling components:
+StarStrings writes `Mil/1/C Bracer` as a prefix, and `[MilS1C]` after it would
+be the same fact twice in two notations.
 
 **`S<n>` — the size**, and only where it carries information. Size is shown
 only when it *varies within the item's own type*, which is a property of the

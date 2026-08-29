@@ -87,7 +87,11 @@ static int Build(Options o)
     }
 
     var extra = LoadSold(o.Sold);
-    var built = Table.Run(baseIni, facts.Items, extra);
+
+    // StarStrings prefixes components with their own class/size/grade, so ours
+    // would be the same fact twice. Deferring is the point of layering.
+    var labelled = over.Contains("StarStrings", StringComparison.Ordinal);
+    var built = Table.Run(baseIni, facts.Items, extra, labelled);
 
     Directory.CreateDirectory(o.Out);
     var target = Path.Combine(o.Out, "global.ini");
@@ -101,7 +105,8 @@ static int Build(Options o)
     if (extra.Count > 0) Console.WriteLine($"plus {extra.Count} item classes you have receipts for");
     Console.WriteLine();
     Console.WriteLine($"  marked rare   : {built.Marked:N0}");
-    Console.WriteLine($"  given a size  : {built.Sized:N0}");
+    Console.WriteLine($"  components    : {built.Sized:N0}"
+        + (labelled ? "   (suppressed - the mod underneath already labels them)" : ""));
     Console.WriteLine($"  armour classed: {built.Classed:N0}");
     Console.WriteLine($"  left alone    : {built.Untouched:N0}");
     Console.WriteLine($"  not in facts  : {built.Unknown:N0}   (left alone - unknown is not rare)");
