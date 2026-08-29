@@ -108,6 +108,8 @@ obtained. That is a useful floor, not a rating.
   accuracy, and the traps in each
 - [docs/results.md](docs/results.md) — what it actually did against one real
   install, including the two defects the install loop found
+- [docs/datacore.md](docs/datacore.md) — what is inside Game2.dcb, and what it
+  would take to read it properly
 - [CREDITS.md](CREDITS.md) — MrKraken's StarStrings is the idea this is built
   on, and none of it is redistributed here
 

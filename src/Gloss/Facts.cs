@@ -17,8 +17,13 @@ namespace Gloss;
 /// For armour, the weight class - Light, Medium or Heavy. Also carries slot
 /// words and UNDEFINED for pieces that have no class, which are not shown.
 /// </param>
+/// <param name="Class">
+/// Military, Civilian, Industrial, Competition or Stealth, for ship components.
+/// </param>
+/// <param name="Grade">A to D, for ship components.</param>
 public sealed record Fact(
-    bool Lootable, bool Craftable, bool Sold, int Size, string Type, string Classification, string SubType);
+    bool Lootable, bool Craftable, bool Sold, int Size, string Type, string Classification,
+    string SubType, string Class, string Grade);
 
 /// <summary>The whole fact table, as published.</summary>
 public sealed record FactFile(
@@ -121,7 +126,9 @@ public static class Facts
                 : 0,
             Str(entry, "type") ?? "?",
             Str(entry, "classification") ?? "?",
-            Str(entry, "sub_type") ?? "");
+            Str(entry, "sub_type") ?? "",
+            Str(entry, "class") ?? "",
+            Str(entry, "grade") ?? "");
     }
 
     private static string? Str(JsonElement element, string name) =>
