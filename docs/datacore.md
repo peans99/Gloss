@@ -347,6 +347,25 @@ need not mention its class at all. "Ace Interceptor Helmet" is
 fields live is done; reading the fields themselves needs the typed value arrays
 and the data-mapping table.
 
+### Ships: reachable in part, and the rest is derived not stored
+
+`VehicleComponentParams` carries `crewSize`, `vehicleName` and
+`vehicleDescription`, so a ship's identity and crew come straight out. What is
+*not* there is the rest of what a fleet view wants: cargo capacity, SCM and max
+speed, shield HP.
+
+Those are not fields anybody forgot to look for — they are **computed**. Cargo
+capacity is the sum of a ship's cargo grids, shield HP the sum of its fitted
+shield generators, and speeds come from its thrusters and IFCS. The community
+dump has them because scunpacked walks the loadout and adds them up.
+
+So ship specifications are a different order of work from naming: not a lookup
+but a reimplementation of somebody else's derivations, each of which can be
+subtly wrong in ways no single assertion catches. That is why the app still
+carries the dump for the Fleet page, and why the Settings copy says
+specifications are "not in the game files in a form this app can read yet"
+rather than claiming they are absent.
+
 ## Why Quantum Wake might want it too
 
 The same file would answer questions that project currently answers with a
