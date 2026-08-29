@@ -130,9 +130,50 @@ has looted `gmni_lmg_ballistic_01`, so a parser that cannot find that string has
 not found the text section. The 109 looted classes and 147 bought ones are the
 test set for everything built on top.
 
-What is still ahead is the part that turns strings into facts: the struct and
-property definitions, the enum tables, the typed value arrays, and the record
-instances that index into them. Locating the text is the easy half.
+### Solved: the header, and why guessing failed
+
+Guessing the layout gets nowhere and fails in a way that looks like success —
+offsets land *inside* strings and produce plausible fragments. Requiring a name
+to start at a string boundary took a search that scored 40/40 down to zero
+matches, which is how the guesses were caught.
+
+The format is published. unp4k's `unforge` carries it, and the header decodes
+this file exactly:
+
+| | |
+|---|---|
+| file version | **8** — so record definitions are 36 bytes, not 32 |
+| struct / property / enum / record | 6,694 / 23,788 / 774 / 116,921 |
+| text | 17,165,925 bytes at `0x23613CD` |
+| blob | 7,190,252 bytes at `0x33C0232` |
+
+Sections start at `0x78` and run struct, property, enum, mapping, record, then
+the typed value arrays, then text, then blob. **Two traps, both silent:**
+
+1. **There are two string tables.** Names come from the *blob*; file paths come
+   from the *text*. Reading a name out of the text table lands mid-string.
+2. **The header declares value counts in a different order from the one the
+   sections are stored in.** Booleans are declared sixth and stored ninth. Get
+   that wrong and every offset after it shifts.
+
+### Verified
+
+`DataCore.cs` reads it, and the check that matters is against this install
+rather than against the format:
+
+| | |
+|---|---|
+| records read | **116,921** |
+| **looted classes resolved** | **109 of 109** |
+| struct names | real type names — `ActivityBehaviorRequestCondition` |
+| commodity records | 135, as `EntityClassDefinition` under `entities/commodities/` |
+
+Record areas: 27,127 entities, 24,024 dialoguecontextbank, 18,878 tagdatabase,
+2,584 missionbroker, 2,471 missiondata.
+
+Still ahead: property values. Reading *which* struct a record is and where its
+fields live is done; reading the fields themselves needs the typed value arrays
+and the data-mapping table.
 
 ## Why Quantum Wake might want it too
 
