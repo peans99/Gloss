@@ -522,6 +522,70 @@ public sealed class DataCore
         return -1;
     }
 
+    /// <summary>
+    /// A single strong or weak pointer field, rather than an array of them.
+    /// </summary>
+    /// <remarks>
+    /// Stored inline as the same eight bytes an array entry uses - a struct
+    /// index and which instance - so a ship reaches its loadout, and a loadout
+    /// its entries, without an array in between.
+    /// </remarks>
+    public Pointer? PointerAt(long instance, int structIndex, string name)
+    {
+        var (at, field) = FieldAt(instance, structIndex, name);
+
+        if (at < 0 || field is not { ConversionType: 0, DataType: 0x0110 or 0x0210 }
+            || at + 8 > _data.LongLength)
+        {
+            return null;
+        }
+
+        var target = (int)BitConverter.ToUInt32(_data, (int)at);
+        if (target < 0 || target >= StructDefinitionCount) return null;
+
+        return new Pointer(target, BitConverter.ToUInt16(_data, (int)(at + 4)));
+    }
+
+    /// <summary>A float field, or null.</summary>
+    public float? SingleAt(long instance, int structIndex, string name)
+    {
+        var (at, field) = FieldAt(instance, structIndex, name);
+
+        return at >= 0 && field is { ConversionType: 0, DataType: 0x000B } && at + 4 <= _data.LongLength
+            ? BitConverter.ToSingle(_data, (int)at)
+            : null;
+    }
+
+    /// <summary>A pointer array read from an arbitrary instance, not just a record.</summary>
+    public IReadOnlyList<Pointer> PointerArrayAt(long instance, int structIndex, string name)
+    {
+        var (at, field) = FieldAt(instance, structIndex, name);
+
+        if (at < 0 || field is null || field.ConversionType == 0
+            || field.DataType is not (0x0110 or 0x0210) || at + 8 > _data.LongLength)
+        {
+            return [];
+        }
+
+        var count = BitConverter.ToUInt32(_data, (int)at);
+        var first = BitConverter.ToUInt32(_data, (int)(at + 4));
+        if (count > 4096) return [];
+
+        var items = new List<Pointer>((int)count);
+
+        for (var i = 0; i < count; i++)
+        {
+            var e = _strongValues + (first + i) * 8L;
+            if (e + 8 > _data.LongLength) break;
+
+            items.Add(new Pointer(
+                (int)BitConverter.ToUInt32(_data, (int)e),
+                BitConverter.ToUInt16(_data, (int)(e + 4))));
+        }
+
+        return items;
+    }
+
     /// <summary>Where a pointed-at instance begins, or -1.</summary>
     public long InstanceAt(Pointer pointer)
     {

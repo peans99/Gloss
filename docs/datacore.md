@@ -366,6 +366,26 @@ carries the dump for the Fleet page, and why the Settings copy says
 specifications are "not in the game files in a form this app can read yet"
 rather than claiming they are absent.
 
+What a first attempt found, so a second does not repeat it. On the Gladius
+template:
+
+- `SHealthComponentParams.Health` reads **1**, not a hull HP. It is normalised;
+  `VehicleComponentParams` carries a separate
+  `vehicleHullDamageNormalizationValue`.
+- `SEntityComponentDefaultLoadoutParams.loadout` resolves to
+  `SItemPortLoadoutXMLParams`, whose `loadoutPath` is **empty**.
+- `SItemPortContainerComponentParams.Ports` has a **count of 0**.
+
+So the template carries no fitted parts at all, and cargo, shields and speeds
+cannot be summed from it. There are many Gladius entity records — AI, pirate,
+unmanned, Valiant variants — and 466 records with "loadout" in their path, so
+the fitting is described somewhere; finding which record binds a ship to its
+loadout is the next thread, not another field on the ship.
+
+One structural note for whoever pulls it: `Ports` is an array of *inline
+classes* (`0x0010` with a conversion type), not of pointers. Those are a third
+array shape beyond the pointer arrays and plain fields already handled.
+
 ## Why Quantum Wake might want it too
 
 The same file would answer questions that project currently answers with a
