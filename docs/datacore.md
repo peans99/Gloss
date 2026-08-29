@@ -229,9 +229,54 @@ Struct properties read correctly - the parent chain has to be walked root-first,
 because inherited fields are laid out before a struct's own and reading them in
 declaration order misaligns everything after the first.
 
-Still ahead: instance values. Knowing a struct has a `displayName` at a given
-position is done; reading *that record's* value needs the data-mapping table,
-the computed instance size, and the typed value arrays. Reading *which* struct a record is and where its
+### Instance values, and the check that proves the whole chain
+
+Instances are laid out one struct at a time in data-mapping order, each block
+being count x that struct's own instance size, which the struct definition
+carries. There is one mapping per struct, which is why the header declares the
+same number of both.
+
+That gives the reader its best self-check, and it passes exactly:
+
+```
+data offset    61,454,622
+data total    269,980,934
+sum           331,435,556   = the file length, to the byte
+```
+
+Every section size, value-array width and struct size has to be right for that
+to land. One wrong number anywhere upstream moves the total by exactly that
+amount, so this single assertion validates the entire chain.
+
+Reading a field means walking the struct's properties in layout order and adding
+each one's width — four bytes for a string, locale or enum, since those are
+offsets rather than text; eight for any array, whatever it holds; twenty for a
+reference. An inline class ends the walk rather than being skipped by a guessed
+width, because a wrong width there reads a neighbouring field and returns
+something that looks like an answer.
+
+### Commodity names, end to end
+
+```
+resourceGUID -> record -> displayName -> global.ini -> the text
+
+ResourceType.Aluminum -> @items_commodities_aluminum -> "Aluminum"
+```
+
+| | |
+|---|---|
+| dataset commodities | 203 |
+| with a `displayName` in the blob | **203 (100%)** |
+| resolving to English text | 178 (88%) |
+| **disagreeing with the dataset** | **0** |
+
+The 25 that do not resolve have a `displayName` key absent from the English
+table; none of them resolve to a *wrong* name.
+
+This is also why joining on class name only reached 116: a commodity's name key
+need not mention its class at all. "Ace Interceptor Helmet" is
+`ResourceType.AceInterceptorHelmet` pointing at
+`@item_Name_basl_combat_light_helmet_02_01_01`. Reading *which* struct a record is and where its
 fields live is done; reading the fields themselves needs the typed value arrays
 and the data-mapping table.
 

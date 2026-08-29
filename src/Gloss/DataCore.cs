@@ -3,7 +3,7 @@ using System.Text;
 namespace Gloss;
 
 /// <summary>One record in the DataCore: a game object with a path and a type.</summary>
-public sealed record DataRecord(string Name, string FileName, int StructIndex, Guid Hash);
+public sealed record DataRecord(string Name, string FileName, int StructIndex, Guid Hash, int VariantIndex);
 
 /// <summary>
 /// Reads Star Citizen's DataCore blob, <c>Data\Game2.dcb</c>.
@@ -44,6 +44,7 @@ public sealed class DataCore
     private readonly long _structOffset;
     private readonly long _recordOffset;
     private readonly int _recordSize;
+    private int _mappingCount;
 
     public DataCore(byte[] data)
     {
@@ -80,8 +81,9 @@ public sealed class DataCore
         _structOffset = 0x78;
         var propertyOffset = _structOffset + StructDefinitionCount * 16L;
         var enumOffset = propertyOffset + PropertyDefinitionCount * 12L;
-        var mappingOffset = enumOffset + EnumDefinitionCount * 8L;
-        _recordOffset = mappingOffset + dataMappingCount * 8L;
+        _mappingOffset = enumOffset + EnumDefinitionCount * 8L;
+        _mappingCount = dataMappingCount;
+        _recordOffset = _mappingOffset + dataMappingCount * 8L;
 
         _recordSize = FileVersion < 8 ? 32 : 36;
         var cursor = _recordOffset + RecordDefinitionCount * (long)_recordSize;
@@ -98,6 +100,7 @@ public sealed class DataCore
 
         _textOffset = cursor;
         _blobOffset = _textOffset + textLength;
+        _dataOffset = _blobOffset + blobLength;
 
         TextLength = textLength;
         BlobLength = blobLength;
@@ -185,6 +188,67 @@ public sealed class DataCore
         return Blob(BitConverter.ToUInt32(_data, (int)(_structOffset + index * 16L)));
     }
 
+    private long _mappingOffset;
+    private long _dataOffset;
+    private Dictionary<int, long>? _structData;
+
+    /// <summary>The instance size of a struct, in bytes.</summary>
+    public int StructSize(int index) =>
+        index < 0 || index >= StructDefinitionCount
+            ? 0
+            : (int)BitConverter.ToUInt32(_data, (int)(_structOffset + index * 16L + 12));
+
+    /// <summary>
+    /// Where each struct's instances begin, relative to the data section.
+    /// </summary>
+    /// <remarks>
+    /// Instances are laid out one struct at a time, in data-mapping order, each
+    /// block being count x the struct's own instance size. There is one mapping
+    /// per struct - which is why the header declares the same number of both -
+    /// so the mapping's index is the struct's.
+    ///
+    /// The total is the reader's best self-check: laid out correctly it lands
+    /// exactly on the end of the file, so a single wrong section size anywhere
+    /// upstream shows up here rather than as quiet nonsense downstream.
+    /// </remarks>
+    public long DataTotal { get; private set; }
+
+    public long DataOffset => _dataOffset;
+
+    /// <summary>True when the instance layout ends exactly at the end of file.</summary>
+    public bool LayoutAddsUp => _dataOffset + DataTotal == _data.LongLength;
+
+    private void MapInstances()
+    {
+        if (_structData is not null) return;
+
+        _structData = [];
+        var running = 0L;
+
+        for (var i = 0; i < _mappingCount; i++)
+        {
+            var at = _mappingOffset + i * 8L;
+            var count = BitConverter.ToUInt32(_data, (int)at);
+            var structIndex = (int)BitConverter.ToUInt32(_data, (int)(at + 4));
+
+            _structData.TryAdd(structIndex, running);
+            running += count * (long)StructSize(i);
+        }
+
+        DataTotal = running;
+    }
+
+    /// <summary>Where one record's instance data begins, or -1.</summary>
+    public long InstanceAt(DataRecord record, int variantIndex)
+    {
+        MapInstances();
+
+        if (_structData is null || !_structData.TryGetValue(record.StructIndex, out var block))
+            return -1;
+
+        return _dataOffset + block + variantIndex * (long)StructSize(record.StructIndex);
+    }
+
     /// <summary>One field on a struct.</summary>
     /// <param name="DataType">The DataForge type code, e.g. 0x000A for a string.</param>
     /// <param name="ConversionType">0 is a plain attribute; 1-3 are array forms.</param>
@@ -236,6 +300,69 @@ public sealed class DataCore
         return all;
     }
 
+    /// <summary>
+    /// How many bytes a property of this type occupies inside an instance.
+    /// </summary>
+    /// <remarks>
+    /// An array of anything is a count and an index into the value arrays, so it
+    /// is eight bytes whatever it holds. Everything else is stored inline, and
+    /// the strings are four-byte offsets rather than the text itself.
+    /// </remarks>
+    private int Width(Property p) => p.ConversionType != 0
+        ? 8
+        : p.DataType switch
+        {
+            0x0001 or 0x0002 or 0x0006 => 1,          // bool, int8, uint8
+            0x0003 or 0x0007 => 2,                     // int16, uint16
+            0x0004 or 0x0008 or 0x000B => 4,           // int32, uint32, single
+            0x0005 or 0x0009 or 0x000C => 8,           // int64, uint64, double
+            0x000A or 0x000D or 0x000F => 4,           // string, locale, enum - all offsets
+            0x000E => 16,                              // guid
+            0x0110 or 0x0210 => 8,                     // strong and weak pointers
+            0x0310 => 20,                              // reference: an index and a guid
+            _ => 0,                                    // varClass is inline; handled by the caller
+        };
+
+    /// <summary>
+    /// A named string, locale or enum value on a record, or null.
+    /// </summary>
+    /// <remarks>
+    /// Walks the struct's fields in layout order, adding each one's width, and
+    /// stops at the wanted name. Inline classes are not walked into - the first
+    /// one ends the walk rather than being skipped by a guessed width, because a
+    /// wrong width here reads a neighbouring field and returns something that
+    /// looks like an answer.
+    /// </remarks>
+    public string? TextProperty(DataRecord record, string name)
+    {
+        var at = InstanceAt(record, record.VariantIndex);
+        if (at < 0) return null;
+
+        foreach (var p in StructProperties(record.StructIndex))
+        {
+            var width = Width(p);
+
+            if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase) && p.ConversionType == 0)
+            {
+                if (at + 4 > _data.LongLength) return null;
+                var offset = BitConverter.ToUInt32(_data, (int)at);
+
+                return p.DataType switch
+                {
+                    0x000A => Text(offset),                    // string
+                    0x000D => Text(offset),                    // locale reference
+                    0x000F => Text(offset),                    // enum name
+                    _ => null,
+                };
+            }
+
+            if (width == 0) return null;                        // inline class: cannot walk past it
+            at += width;
+        }
+
+        return null;
+    }
+
     /// <summary>Every record, with its path and type.</summary>
     public IEnumerable<DataRecord> Records()
     {
@@ -251,7 +378,9 @@ public sealed class DataCore
             var structIndex = BitConverter.ToInt32(_data, (int)(at + 12));
             var hash = ReadHash(_data.AsSpan((int)(at + 16), 16));
 
-            yield return new DataRecord(name, fileName, structIndex, hash);
+            var variant = BitConverter.ToUInt16(_data, (int)(at + 32));
+
+            yield return new DataRecord(name, fileName, structIndex, hash, variant);
         }
     }
 }
